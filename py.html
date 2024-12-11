@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organization Chart</title>
+  <style>
+    body {
+      background-color: #1E1E1E;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .node {
+      height: 80px;
+      background-color: #4F4F4F !important;
+      border: 1px solid #818181;
+      border-radius: 8px;
+      text-align: center;
+      line-height: 1.2;
+      font-size: 14px;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+      padding: 8px;
+      color: white;
+      position: relative;
+    }
+
+    .menu {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      cursor: pointer;
+      font-size: 20px;
+      color: #ff9900;
+      font-weight: bolder;
+    }
+
+    .popup-menu {
+      position: absolute;
+      top: 25px;
+      right: 5px;
+      background-color: #252526;
+      border: 1px solid #444;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 1000;
+      padding: 8px;
+    }
+
+    .popup-menu div {
+      cursor: pointer;
+      margin: 5px 0;
+      padding: 5px 10px;
+      color: white;
+    }
+
+    .popup-menu div:hover {
+      background-color: #444;
+      border-radius: 4px;
+    }
+
+    .loading {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 18px;
+      color: #aaa;
+    }
+
+    .error {
+      color: red;
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js"></script>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <script>
+    // Load Google Charts
+    google.charts.load('current', { packages: ['orgchart'] });
+    google.charts.setOnLoadCallback(drawChart);
+
+    const BASE_URL = "http://127.0.0.1:8000"; // Backend URL
+    const user_id = "{{ request.user.id }}"; 
+
+    async function drawChart() {
+      const chartDiv = document.getElementById('chart_div');
+      const loadingDiv = document.getElementById('loading');
+      const errorDiv = document.getElementById('error');
+
+      // Show loading message
+      loadingDiv.style.display = 'block';
+      chartDiv.style.display = 'none';
+      errorDiv.style.display = 'none';
+
+      try {
+        // Fetch data from the backend
+        const response = await axios.get(`${BASE_URL}/api/chart-view/?user_id=${user_id}`);
+        const nodes = response.data;
+
+        console.log("Nodes fetched from backend:", nodes);
+
+        if (!nodes || nodes.length === 0) {
+          chartDiv.innerHTML = '<p>No data to display.</p>';
+          return;
+        }
+
+        // Initialize Google Chart data table
+        const data = new google.visualization.DataTable();
+        data.addColumn('string', 'Name');
+        data.addColumn('string', 'Manager');
+        data.addColumn('string', 'Tooltip');
+
+        // Populate the data table
+        nodes.forEach((node) => {
+          const menuId = `menu-${node.id}`;
+          const popupId = `popup-${node.id}`;
+          data.addRow([
+            {
+              v: node.name,
+              f: `<div class="node">
+                      <img src="https://www.ahf.mortgage/media/agent_placeholder.jpg" alt="profile" style="width: 30px; height: 30px; border-radius: 50%;">
+                      <br>${node.name}
+                      <span class="menu" id="${menuId}" onclick="togglePopup('${popupId}')">⋮</span>
+                      <div class="popup-menu" id="${popupId}">
+                        <div onclick="addAgent('${node.id}', '${node.name}')">Add Agent</div>
+                        <div onclick="seeDetail('${node.id}', '${node.name}')">See Detail</div>
+                        <div onclick="deleteAgent('${node.id}', '${node.name}')">Delete</div>
+                      </div>
+                  </div>`
+            },
+            node.parent_id ? node.parent_id : null,
+            `Level: ${node.level}`
+          ]);
+        });
+
+        // Draw the chart
+        const chart = new google.visualization.OrgChart(chartDiv);
+        chart.draw(data, { allowHtml: true, nodeClass: 'node', allowCollapse: true });
+
+        // Hide loading message and show chart
+        loadingDiv.style.display = 'none';
+        chartDiv.style.display = 'block';
+      } catch (error) {
+        console.error("Error fetching chart data:", error);
+
+        // Show error message
+        loadingDiv.style.display = 'none';
+        errorDiv.style.display = 'block';
+        errorDiv.innerText = 'Failed to load data. Please try again later.';
+      }
+    }
+
+    // Toggle popup menu visibility
+    function togglePopup(popupId) {
+      const popup = document.getElementById(popupId);
+      popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // Add Agent handler
+    function addAgent(nodeId, nodeName) {
+      alert(`Adding a new agent under: ${nodeName} (Node ID: ${nodeId})`);
+      const baseUrl = "/revenue/register/";
+      const targetURL = `${baseUrl}${nodeId}`;
+      window.location.href = targetURL;
+    }
+
+    // See Detail handler
+    function seeDetail(nodeId, nodeName) {
+      // alert(`Viewing details for: ${nodeName} (Node ID: ${nodeId})`);
+      const baseUrl = "/mlo-loan-detail/"
+      const targetURL = `${baseUrl}${nodeName}/3/`;
+      window.location.href = targetURL;
+
+
+      // Implement additional logic for viewing details here
+    }
+
+    // Delete Agent handler
+    function deleteAgent(nodeId, nodeName) {
+      const confirmation = confirm(`Are you sure you want to delete agent: ${nodeName} (Node ID: ${nodeId})?`);
+      if (confirmation) {
+        alert(`Deleting agent: ${nodeName}`);
+        // Implement the delete logic here
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="loading" class="loading">Loading...</div>
+  <div id="error" class="error" style="display: none;"></div>
+  <div id="chart_div" style="display: none;"></div>
+</body>
+
+</html>
